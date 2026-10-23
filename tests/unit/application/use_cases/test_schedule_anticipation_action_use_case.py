@@ -481,6 +481,48 @@ class TestScheduleAnticipationActionStateTransitions:
     """Test preheating state transitions around target reached and slot completion."""
 
     @pytest.mark.asyncio
+    async def test_target_reached_before_slot_keeps_active_preheating(
+        self,
+        schedule_anticipation_action_use_case: ScheduleAnticipationActionUseCase,
+        control_preheating_use_case,
+        scheduler_reader,
+        test_now: datetime,
+    ) -> None:
+        """Reaching the target before the slot must not revert to the previous setpoint.
+
+        GIVEN: Preheating active for a slot 20 minutes ahead
+        WHEN: A recalculation reports the target already reached (anticipation 0)
+        THEN: Preheating stays active and the scheduler is not reverted, so the
+              thermostat keeps regulating at comfort instead of flapping to eco
+        """
+        target_time = test_now + timedelta(minutes=20)
+        scheduler_reader.is_scheduler_enabled = AsyncMock(return_value=True)
+        schedule_anticipation_action_use_case._control_preheating = control_preheating_use_case
+
+        with patch.object(dt_util, "now", return_value=test_now):
+            await control_preheating_use_case.start_preheating(
+                target_time=target_time,
+                target_temp=19.0,
+                scheduler_entity_id="schedule.heating",
+            )
+            control_preheating_use_case._scheduler_commander.cancel_action = AsyncMock()
+
+            await schedule_anticipation_action_use_case.handle_anticipation_scheduling(
+                anticipation_data={
+                    "anticipated_start_time": target_time,
+                    "next_schedule_time": target_time,
+                    "next_target_temperature": 19.0,
+                    "scheduler_entity": "schedule.heating",
+                    "learned_heating_slope": 2.0,
+                    "anticipation_minutes": 0,
+                },
+                ihp_enabled=True,
+            )
+
+        assert control_preheating_use_case.is_preheating_active()
+        control_preheating_use_case._scheduler_commander.cancel_action.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_completed_preheating_does_not_block_next_slot(
         self,
         schedule_anticipation_action_use_case: ScheduleAnticipationActionUseCase,

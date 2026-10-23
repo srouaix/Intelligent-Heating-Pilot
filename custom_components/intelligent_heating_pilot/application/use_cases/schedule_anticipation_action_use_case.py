@@ -115,14 +115,12 @@ class ScheduleAnticipationActionUseCase:
             await self.cancel_action()
             return
 
-        # Decision 3: Target already reached (anticipation_minutes == 0) - clear state
+        # Decision 3: Target already reached (anticipation_minutes == 0) - drop pending timer
+        # but keep any active preheating: reverting before the slot would let the room
+        # cool down and restart heating, short-cycling the boiler until the slot fires.
         if anticipation_data.get("anticipation_minutes") == 0:
-            _LOGGER.debug("Target reached - clearing anticipation state")
+            _LOGGER.debug("Target reached - cancelling pending timer, keeping active preheating")
             await self.cancel_action()
-            await self._control_preheating.cancel_preheating(
-                self._control_preheating.get_active_scheduler_entity()
-                or anticipation_data.get("scheduler_entity")
-            )
             return
 
         # Decision 4: No scheduler entity - skip scheduling
