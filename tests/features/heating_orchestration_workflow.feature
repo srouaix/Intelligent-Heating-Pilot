@@ -62,6 +62,24 @@ Feature: Heating Orchestration Workflow
     Then preheating should be marked as complete
     And the anticipation state should be cleared
 
+  Scenario: Target reached before the timeslot — keep comfort until the slot fires
+    Given the orchestrator is configured with all use cases
+    And preheating is currently active for target time 07:00
+    And anticipation calculation returns 0 minutes of anticipation
+    When the orchestrator calculates and schedules anticipation
+    Then preheating should continue without interruption
+    And preheating should still be active
+
+  Scenario: Completed preheating does not block the next timeslot
+    Given the orchestrator is configured with all use cases
+    And preheating is currently active for target time 04:00
+    And the next timeslot is at 07:00 with target temperature 21°C
+    And the current indoor temperature is 18°C
+    And the calculated anticipated start time is 05:30
+    When the orchestrator calculates and schedules anticipation
+    Then no cancel action should be triggered
+    And a preheating timer should be scheduled for 05:30
+
   # ===================================================================
   # IHP ENABLED / DISABLED — Switch controls preheating behavior
   # ===================================================================

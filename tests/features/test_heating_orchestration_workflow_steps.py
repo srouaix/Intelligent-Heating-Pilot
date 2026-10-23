@@ -730,6 +730,12 @@ def preheating_continues(mock_scheduler_commander):
     mock_scheduler_commander.cancel_action.assert_not_called()
 
 
+@then("preheating should still be active")
+def preheating_still_active(mock_control_preheating):
+    """THEN: The active preheating flag is kept until the timeslot fires."""
+    assert mock_control_preheating.is_preheating_active()
+
+
 @then("no cancel action should be triggered")
 def no_cancel_action(mock_scheduler_commander):
     """THEN: No cancel action was issued at all."""
